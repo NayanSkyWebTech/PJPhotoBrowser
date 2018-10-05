@@ -15,6 +15,7 @@ typedef enum : NSUInteger {
 @interface PJZoomImageView () <UIScrollViewDelegate>
 @property (nonatomic) CGSize oldSize;
 @property (nonatomic) ZoomMode zoomMode;
+@property (nonatomic) UIImageView *imageView;
 @end
 
 @implementation PJZoomImageView
