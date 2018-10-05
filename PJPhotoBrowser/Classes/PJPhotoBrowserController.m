@@ -7,7 +7,6 @@
 
 #import "PJPhotoBrowserController.h"
 #import <SDWebImage/UIImageView+WebCache.h>
-#import <DACircularProgress/DACircularProgressView.h>
 #import "PJZoomImageView.h"
 
 @protocol PJPhotoContainerCollectionViewCellSingleTouchDelegate;
@@ -27,9 +26,9 @@
 @end
 
 @interface PJPhotoContainerCollectionViewCell ()
-@property (nonatomic) CGFloat progress;
-@property (nonatomic) DACircularProgressView *progressView;
+@property (nonatomic) UIActivityIndicatorView *progressView;
 @property (nonatomic) UIButton *videoPlayButton;
+@property (nonatomic) id<SDWebImageOperation> imageOperation;
 @end
 
 @implementation PJPhotoContainerCollectionViewCell
@@ -39,8 +38,9 @@
     if (isVideo) {
         if (!_videoPlayButton || _videoPlayButton.superview != self) {
             _videoPlayButton = [[UIButton alloc] init];
-            UIImage *image = [UIImage imageNamed:@"playVideo" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil];
-            [_videoPlayButton setImage:image forState:UIControlStateNormal];
+//            UIImage *image = [UIImage imageNamed:@"playVideo" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil];
+//            [_videoPlayButton setImage:image forState:UIControlStateNormal];
+            [_videoPlayButton setImage:[UIImage imageNamed:@"playVideo"] forState:UIControlStateNormal];
             _videoPlayButton.translatesAutoresizingMaskIntoConstraints=NO;
             [self addSubview:_videoPlayButton];
             [_videoPlayButton.centerXAnchor constraintEqualToAnchor:self.centerXAnchor].active=YES;
@@ -55,12 +55,13 @@
     else {
         _videoPlayButton.hidden=YES;
     }
+    self.zoomImageView.userInteractionEnabled = !isVideo;
 }
 
 - (void)prepareForReuse {
-    self.zoomImageView.imageView.image=nil;
-    self.progressView.progress = 0;
-    self.progress = 0;
+    self.zoomImageView.image=nil;
+    [_imageOperation cancel];
+    _imageOperation = nil;
 }
 
 - (void)layoutSubviews {
@@ -81,12 +82,11 @@
     return _zoomImageView;
 }
 
-- (DACircularProgressView *)progressView {
+- (UIActivityIndicatorView *)progressView {
     if (!_progressView) {
-        _progressView = [[DACircularProgressView alloc] initWithFrame:CGRectMake(0, 0, 40.0f, 40.0f)];
+        _progressView = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
         _progressView.userInteractionEnabled = NO;
-        _progressView.thicknessRatio = 0.1;
-        _progressView.roundedCorners = NO;
+        _progressView.hidesWhenStopped=YES;
         [self addSubview:_progressView];
         if (@available(iOS 9.0, *)) {
             _progressView.translatesAutoresizingMaskIntoConstraints=NO;
@@ -105,23 +105,24 @@
 }
 
 - (void)setImageWithURL:(NSURL*)url {
-    self.progressView.progress = MAX(MIN(1, self.progress), 0);
      SDWebImageManager *manager = [SDWebImageManager sharedManager];
-    [manager downloadImageWithURL:url
+    [self.progressView startAnimating];
+    _imageOperation = [manager downloadImageWithURL:url
                           options:0
                          progress:^(NSInteger receivedSize, NSInteger expectedSize) {
-                             if (expectedSize > 0) {
-                                 float progress = receivedSize / (float)expectedSize;
-                                 self.progressView.progress = MAX(MIN(1, progress), 0);
-                                 self.progress=progress;
-                             }
                          }
                         completed:^(UIImage *image, NSError *error, SDImageCacheType cacheType, BOOL finished, NSURL *imageURL) {
                             if (!error) {
                                 dispatch_async(dispatch_get_main_queue(), ^{
                                     if (image) {
-                                        self.zoomImageView.imageView.image=image;
+                                        self.zoomImageView.image=image;
+                                        [self.progressView stopAnimating];
                                     }
+                                });
+                            }
+                            else {
+                                dispatch_async(dispatch_get_main_queue(), ^{
+                                    [self.progressView stopAnimating];
                                 });
                             }
                         }];
@@ -390,7 +391,6 @@
         [self.collectionView reloadData];
         [self.view setNeedsLayout];
     }
-    
 }
 
 - (void)performLayout {
