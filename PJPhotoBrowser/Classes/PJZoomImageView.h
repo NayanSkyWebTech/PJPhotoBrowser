@@ -8,5 +8,5 @@
 #import <UIKit/UIKit.h>
 
 @interface PJZoomImageView : UIScrollView
-@property (nonatomic) UIImageView *imageView;
+@property (nonatomic) UIImage *image;
 @end
